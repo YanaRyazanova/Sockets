@@ -31,4 +31,7 @@
     <EmbeddedResource Remove="MvcSockets\**" />
     <None Remove="MvcSockets\**" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="NewFolder\" />
+  </ItemGroup>
 </Project>

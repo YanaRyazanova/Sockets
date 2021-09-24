@@ -159,10 +159,71 @@ namespace Sockets
 
         private static byte[] ProcessRequest(Request request)
         {
-            // TODO
-            var head = new StringBuilder("OK");
+            var head = new StringBuilder("HTTP/1.1 404 Not Found\r\n\r\n");
             var body = new byte[0];
+            var cookie = GetCookies(request);
+            string nameFromCookie = null;
+            if(cookie != null)
+            {
+                nameFromCookie = cookie["name"];
+            }
+            if (request.RequestUri == "/" || request.RequestUri.Contains("/hello.html"))
+            {
+                body = File.ReadAllBytes("hello.html");
+                var newBody = Encoding.UTF8.GetString(body);
+                if (request.RequestUri.Contains("?"))
+                {
+                    var queryString = request.RequestUri.Split("?")[1];
+                    var collection = HttpUtility.ParseQueryString(queryString);
+                    var name = collection["name"];
+                    if (name != null)
+                    {
+                        newBody = newBody.Replace("{{World}}", HttpUtility.HtmlEncode(name));
+                    }
+                    var greeting = collection["greeting"];
+                    if (greeting != null)
+                    {
+                        newBody = newBody.Replace("{{Hello}}", HttpUtility.HtmlEncode(greeting));
+                    }
+                    body = Encoding.UTF8.GetBytes(newBody);
+                }
+
+                if (nameFromCookie != null )
+                {
+                    var cookieName = HttpUtility.UrlEncode(nameFromCookie);
+                    newBody = newBody.Replace("{{World}}", cookieName);
+                    head = new StringBuilder(
+                        $"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent - Length: {body.Length}\r\nSet-Cookie: name={nameFromCookie}\r\n\r\n");
+                }
+                else
+                {
+                    head = new StringBuilder($"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent - Length: {body.Length}\r\n\r\n");
+                }
+                body = Encoding.UTF8.GetBytes(newBody);
+            }
+            if (request.RequestUri is "/groot.gif")
+            {
+                body = File.ReadAllBytes("groot.gif");
+                head = new StringBuilder($"HTTP/1.1 200 OK\r\nContent-Type: image/gif; charset=utf-8\r\nContent - Length: {body.Length}\r\n\r\n");
+            }
+            if (request.RequestUri is "/time.html")
+            {
+                body = File.ReadAllBytes("time.template.html");
+                var newBody = Encoding.UTF8.GetString(body);
+                newBody = newBody.Replace("{{ServerTime}}", DateTime.Now.ToString());
+                body = Encoding.UTF8.GetBytes(newBody);
+                head = new StringBuilder($"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent - Length: {body.Length}\r\n\r\n");
+            }
             return CreateResponseBytes(head, body);
+        }
+
+        private static Dictionary<string, string> GetCookies(Request request)
+        {
+            var cookieHeader = request.Headers.FirstOrDefault(h => h.Name.Equals("Cookie"));
+            var cookies = cookieHeader?.Value.Split("; ")
+                .Select(c => c.Split('='))
+                .ToDictionary(c => c[0], c => c[1]);
+            return cookies;
         }
 
         // Собирает ответ в виде массива байт из байтов строки head и байтов body.
